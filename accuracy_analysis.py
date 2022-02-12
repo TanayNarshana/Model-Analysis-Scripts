@@ -7,14 +7,14 @@ import torch.nn as nn
 torch.manual_seed(17)
 from tqdm import tqdm
 
+# substitute location to your imagenet directory containing 'val' folder.
+imagenet_dir = '/home/tanay/ImageNet/ILSVRC/Data/CLS-LOC'
+
 BATCH_SIZE = 256
-imagenet_dir = '/home/tanay'
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 model = models.resnet50(pretrained=True)
 model = model.to(DEVICE)
-
-print(DEVICE)
 
 def normalize_transform():
     return transforms.Normalize(mean=[0.485, 0.456, 0.406],
@@ -86,4 +86,4 @@ def evaluate_model(model, data_loader):
 
 val_loader = data_loader(data_dir = imagenet_dir, batch_size = BATCH_SIZE, pin_memory = False)
 acc_1, acc_5 = evaluate_model(model, val_loader)
-print('Top 1 Accuracy: {}%\nTop 5 Accuracy: {}%'.format(acc_1, acc_5))
+print('Top 1 Accuracy: {}%\nTop 5 Accuracy: {}%'.format(acc_1.item(), acc_5.item()))
