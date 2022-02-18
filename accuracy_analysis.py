@@ -3,8 +3,6 @@ import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 import os
 import torch
-import torch.nn as nn
-torch.manual_seed(17)
 from tqdm import tqdm
 
 # substitute location to your imagenet directory containing 'val' folder.
@@ -65,25 +63,38 @@ def get_num_correct(output, target, topk=(1,)):
             correct_k = correct[:k].reshape(-1).float().sum(0, keepdim=True)
             res.append(correct_k)
         return res
+def get_per_class_num_correct(output, target, per_class_correct, per_class_total):
+    _, preds = torch.max(output.data, 1)
+    correct_preds = (preds == target)
+    for i in range(len(per_class_correct)):
+        per_class_correct[i] += (correct_preds * (target == i)).sum().item()
+        per_class_total[i] += (target == i).sum().item()
 
-def evaluate_model(model, data_loader):
+def evaluate_model(model, data_loader, num_classes):
     model.eval()
     total_correct_1, total_correct_5 = 0, 0
     total_samples = 0
+    per_class_correct = [0] * int(num_classes)
+    per_class_total = [0] * int(num_classes)
     with torch.no_grad():
         for i, (images, target) in enumerate(tqdm(data_loader)):
             images = images.to(DEVICE)
             target = target.to(DEVICE)
             output = model(images)
             correct_1, correct_5 = get_num_correct(output, target, topk=(1, 5))
+            get_per_class_num_correct(output, target, per_class_correct, per_class_total)
             total_correct_1 += correct_1
             total_correct_5 += correct_5
             total_samples += target.shape[0]
             del output
     accuracy_1 = (100*total_correct_1)/total_samples
     accuracy_5 = (100*total_correct_5)/total_samples
-    return accuracy_1, accuracy_5
+    per_class_accuracy = []
+    for i in range(len(per_class_correct)):
+        per_class_accuracy.append(per_class_correct[i]/per_class_total[i])
+    return accuracy_1, accuracy_5, per_class_accuracy
 
 val_loader = data_loader(data_dir = imagenet_dir, batch_size = BATCH_SIZE, pin_memory = False)
-acc_1, acc_5 = evaluate_model(model, val_loader)
+acc_1, acc_5, per_class_accuracy = evaluate_model(model, val_loader, 1000)
 print('Top 1 Accuracy: {}%\nTop 5 Accuracy: {}%'.format(acc_1.item(), acc_5.item()))
+print("Class-wise accuracy: \n", per_class_accuracy)
